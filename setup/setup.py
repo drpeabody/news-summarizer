@@ -6,6 +6,5 @@ def install(package):
 
 install("newspaper3k")
 install("Flask")
-install("google-search-results")
 import nltk
 nltk.download('punkt')
