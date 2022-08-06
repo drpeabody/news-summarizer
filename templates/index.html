@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+
+<head>
+    <title>Article Summarizer Tool</title>
+</head>
+<body>
+
+    <style>
+        .loader {
+            border: 16px solid #f3f3f3; /* Light grey */
+            border-top: 16px solid #3498db; /* Blue */
+            border-radius: 50%;
+            width: 10vw;
+            height: 10vw;
+            animation: spin 2s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .left-half {
+            display: inline-block;
+            width: 45vw;
+            border: 5px solid darkgrey;
+            padding: 20px;
+        }
+        .right-half {
+            display: inline-block;
+            width: 45vw;
+            border: 5px solid darkgrey;
+            padding: 20px;
+        }
+        .row {
+            width: 100%;
+        }
+        .bottom {
+            width: 90vw;
+            border: 5px solid darkgrey;
+            padding: 20px;
+            margin-top: 20px;
+        }
+    </style>
+
+    <h1>With ♥ By Abhishek Agarwal</h1>
+    <a>drpeabody.github.io</a>
+
+    <br>
+    <div class="bottom">
+        <h2 class="row">Full Google Search (100 Requests per day max)</h2> 
+        <div class="row">
+            <label>Search Google For:</label>
+            <input type="text" id="google-search-key" name="google-search-key" size="40">
+            <br><br>
+            <label>Start Index:</label>
+            <input type="number" id="google-search-start-index" name="google-search-start-index" min="1" max="90">
+            
+            <label>API Key:</label>
+            <input type="text" id="google-search-api-key" >
+
+            <label>Custom Engine Code:</label>
+            <input type="text" id="google-search-engine-code" >
+        </div>
+        <br>
+        <input type="button" id="g_full_search_button" value="Search Google">
+    </div> 
+
+    <div style="text-align: center;">
+        <label id="log"> {{ log }} </label>
+        <div class="loader" id="progressbar" style="display: none;"></div>
+    </div>
+
+    <div class="bottom">
+        <label>URL:</label>
+        <input type="text" id="url" name="url" size="140"><br><br>
+        <input type="button" id="get_button" value="Get Article">
+    </div> 
+
+    <div id="div_summary_table">
+        <ul id="summary_table"></ul>
+    </div>
+
+</body>
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+<script>
+    function show_loader() {
+        $("#progressbar").css('display',  "block");
+    }
+    function hide_loader() {
+        $("#progressbar").css('display', "none");
+    }
+
+    function reset_summary_table() {
+        $("#summary_table").empty();
+    }
+    function copy_to_clip(str) {
+        function listener(e) {
+            e.clipboardData.setData("text/html", str);
+            e.clipboardData.setData("text/plain", str);
+            e.preventDefault();
+        }
+        document.addEventListener("copy", listener);
+        document.execCommand("copy");
+        document.removeEventListener("copy", listener);
+    }
+    function parse_entry(data) {
+        if("status" in data && data.status)
+            return `
+                <h3>${data.title}</h3>
+                <a>${data.url}</a>
+                <h5>${data.authors}</h5>
+                <p>${data.summary}</p>
+            `;
+        else return `<h1>Error Occoured while parsing entry:</h1> <p>${data.error}</p>`;
+    }
+    function add_entry_to_summary_table(data) {
+        let li = document.createElement("li");
+        let btn = document.createElement("button");
+        btn.innerHTML = "Click to Copy";
+        let stringContent = parse_entry(data);
+
+        btn.onclick = () => { copy_to_clip(stringContent); };
+        li.innerHTML = stringContent;
+        li.insertBefore(btn, li.children[0]);
+        $("#summary_table").append(li);
+    }
+    function is_empty_string(obj) {
+        if (!obj) {
+            // if this code block runs then obj is NOT "", undefined, null, 0, false, NaN
+            return true;
+        } 
+        return obj.trim().length === 0;
+    } 
+</script>
+<script>
+    $('#get_button').on('click', function(e) {
+
+        let url = document.getElementById("url").value;
+        e.preventDefault();
+        
+        if(is_empty_string(url)) {
+            document.getElementById("log").innerHTML = "Error: Input URL is Empty or invalid";
+            return false;
+        }
+        console.log("Initiating API Call By URL = " + url);
+        show_loader();
+        reset_summary_table();
+        $.getJSON(`/processURL/`, { "url": JSON.stringify([url]) }, function (data) {
+            hide_loader();
+            if("status" in data && data.status) {
+                for(entry of data.result) add_entry_to_summary_table(entry);
+            }
+            else 
+                document.getElementById("log").innerHTML = JSON.stringify(data);
+            
+        });
+        return false;
+    });
+    $("#g_full_search_button").on("click", function(e){
+        e.preventDefault();
+
+        document.getElementById("log").innerHTML = '';
+        let query = document.getElementById("google-search-key").value;
+        let startIndex = document.getElementById("google-search-start-index").value;
+        let apiKey = document.getElementById("google-search-api-key").value;
+        let engineCode = document.getElementById("google-search-engine-code").value;
+        let errorMsg = undefined;
+
+        console.log('Google Search Params recevied:', query, startIndex, apiKey, engineCode);
+
+        if(is_empty_string(query)) {
+            errorMsg = "Error: Query is Empty or Invalid";
+        } else if (!$.isNumeric(startIndex) || is_empty_string(startIndex)) {
+            errorMsg = "Error: startIndex is invalid, it should be a valid number between 1 and 90";
+        } else if (is_empty_string(apiKey)) {
+            errorMsg = "Error: apiKey is Empty or invalid";
+        } else if (is_empty_string(engineCode)) {
+            errorMsg = "Error: engineCode is Empty or invalid";
+        }
+
+        if(errorMsg) {
+            document.getElementById("log").innerHTML = errorMsg;
+            return false;
+        }
+
+        let url = `https://www.googleapis.com/customsearch/v1?key=${apiKey}&cx=${engineCode}&q=${query}&start=${startIndex}`;
+
+        show_loader();
+        reset_summary_table();
+        $.getJSON(url, null, function (data) {
+            
+            if("kind" in data && data.kind === "customsearch#search") {
+                document.getElementById("log").innerHTML = `Fetched ${data.items.length} URLs by Google Search`;
+                let responseURLList = data.items.map(l => l.link);
+                $.getJSON(`/processURL/`, { "url": JSON.stringify(responseURLList) }, function (data) {
+                    hide_loader();
+                    if("status" in data && data.status) {
+                        for(entry of data.result) add_entry_to_summary_table(entry);
+                    }
+                    else 
+                        document.getElementById("log").innerHTML = JSON.stringify(data); 
+                });
+            } else {
+                document.getElementById("log").innerHTML = JSON.stringify(data); 
+            }
+            
+        });
+
+        return false;
+    });
+</script>
