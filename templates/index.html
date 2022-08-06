@@ -118,7 +118,10 @@
     function add_entry_to_summary_table(data) {
         let li = document.createElement("li");
         let btn = document.createElement("button");
-        btn.innerHTML = "Click to Copy";
+        btn.innerHTML = "Click to Copy Article Dated " + 
+            ((data.publish_date && data.publish_date !== '') 
+                ? new Date(data.publish_date).toLocaleString()
+                : "(No Date Available)");
         let stringContent = parse_entry(data);
 
         btn.onclick = () => { copy_to_clip(stringContent); };
@@ -190,7 +193,7 @@
         show_loader();
         reset_summary_table();
         $.getJSON(url, null, function (data) {
-            
+            prevResult = data;
             if("kind" in data && data.kind === "customsearch#search") {
                 document.getElementById("log").innerHTML = `Fetched ${data.items.length} URLs by Google Search`;
                 let responseURLList = data.items.map(l => l.link);
@@ -210,4 +213,6 @@
 
         return false;
     });
+
+    var prevResult;
 </script>
