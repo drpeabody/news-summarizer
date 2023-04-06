@@ -71,11 +71,9 @@
         <div class="loader" id="progressbar" style="display: none;"></div>
     </div>
 
-    <div class="bottom">
-        <label>URL:</label>
-        <input type="text" id="url" name="url" size="140"><br><br>
-        <input type="button" id="get_button" value="Get Article">
-    </div> 
+    <div style="text-align: center;">
+        <input type="button" id="gen_report_button" value="Generate Report" disabled>
+    </div>
 
     <div id="div_summary_table">
         <ul id="summary_table"></ul>
@@ -138,29 +136,6 @@
     } 
 </script>
 <script>
-    $('#get_button').on('click', function(e) {
-
-        let url = document.getElementById("url").value;
-        e.preventDefault();
-        
-        if(is_empty_string(url)) {
-            document.getElementById("log").innerHTML = "Error: Input URL is Empty or invalid";
-            return false;
-        }
-        console.log("Initiating API Call By URL = " + url);
-        show_loader();
-        reset_summary_table();
-        $.getJSON(`/processURL/`, { "url": JSON.stringify([url]) }, function (data) {
-            hide_loader();
-            if("status" in data && data.status) {
-                for(entry of data.result) add_entry_to_summary_table(entry);
-            }
-            else 
-                document.getElementById("log").innerHTML = JSON.stringify(data);
-            
-        });
-        return false;
-    });
     $("#g_full_search_button").on("click", function(e){
         e.preventDefault();
 
@@ -200,7 +175,14 @@
                 $.getJSON(`/processURL/`, { "url": JSON.stringify(responseURLList) }, function (data) {
                     hide_loader();
                     if("status" in data && data.status) {
-                        for(entry of data.result) add_entry_to_summary_table(entry);
+                        for (let i = 0; i < data.result.length; i++) {
+                            const entry = data.result[i];
+                            if(!entry.status) delete data.result[i];
+                            else add_entry_to_summary_table(entry);
+                        }
+
+                        $("#gen_report_button").prop('disabled', false);
+                        $("#gen_report_button").prop("state_data", data.result);
                     }
                     else 
                         document.getElementById("log").innerHTML = JSON.stringify(data); 
@@ -212,6 +194,16 @@
         });
 
         return false;
+    });
+
+    $("#gen_report_button").on("click", function(e){
+        e.preventDefault();
+
+        console.log($.get(`/makePDF/`, { data: JSON.stringify($("#gen_report_button").prop("state_data")) }, function(data) {
+            var file = new Blob([data], { type: 'application/pdf;' });
+            var fileURL = URL.createObjectURL(file);
+            window.open(fileURL);
+        }));
     });
 
     var prevResult;

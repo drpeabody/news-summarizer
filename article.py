@@ -1,5 +1,5 @@
 from newspaper import Article
-import json, traceback
+import traceback
 
 def summarize_article_at_url(link):
     try:
